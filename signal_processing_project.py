@@ -21,8 +21,25 @@ plt.title('Raw ECG Signal - Record 100, Lead MLII')
 plt.grid(alpha=0.3)
 plt.show()
 
+#bandpass filter
+low_cutoff_freq = 0.5
+high_cutoff_freq = 45.0
 
+nyquist = fs/2
+low = low_cutoff_freq/nyquist
+high = high_cutoff_freq/nyquist
+order = 4
+b, a = butter(order, [low, high], btype = 'band')
+filtered_signal = filtfilt(b, a, signal)
 
+t2 = np.arange(len(filtered_signal)) / fs
+plt.figure(figsize=(12,4))
+plt.plot(t2, filtered_signal, linewidth=0.8)
+plt.xlabel('Time (s)')
+plt.ylabel('Amplitude (mV)')
+plt.title('Raw ECG Signal - Record 100, Lead MLII')
+plt.grid(alpha=0.3)
+plt.show()
 
 
 
