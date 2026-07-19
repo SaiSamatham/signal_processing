@@ -38,8 +38,46 @@ plt.xlabel('Time (s)')
 plt.ylabel('Amplitude (mV)')
 plt.title('Filtered ECG Signal - Record 100, Lead MLII')
 plt.grid(alpha=0.3)
+
+#detection-only signal (Pan-Tompkins passband)
+low_cutoff_freq2 = 5.0
+high_cutoff_freq2 = 15.0
+
+nyquist2 = fs/2
+low2 = low_cutoff_freq2/nyquist2
+high2 = high_cutoff_freq2/nyquist2
+b2, a2 = butter(order, [low2, high2], btype = 'band')
+filtered_signal2 = filtfilt(b2, a2, signal)
+
+t3 = np.arange(len(filtered_signal2)) / fs
+plt.figure(3, figsize=(12,4))
+plt.plot(t3, filtered_signal2, linewidth=0.8)
+plt.xlabel('Time (s)')
+plt.ylabel('Amplitude (mV)')
+plt.title('Filtered QRS Signal - Record 100, Lead MLII')
+plt.grid(alpha=0.3)
 plt.show()
 
+#take derivative of signals and square them to see difference
+diff_signal = np.diff(filtered_signal2)
+squared_signal = diff_signal ** 2
+t_diff = np.arange(len(diff_signal)) / fs
 
+fig, axes = plt.subplots(3, 1, figsize=(12,9), sharex=True)
+axes[0].plot(t2, filtered_signal2, linewidth=0.8)
+axes[0].set_title('QRS-band Filtered Signal (5-15 Hz)')
+axes[0].set_ylabel('Amplitude (mV)')
+axes[0].grid(alpha=0.3)
 
+axes[1].plot(t_diff, diff_signal, linewidth=0.8, color='orange')
+axes[1].set_title('Differentiated Signal')
+axes[1].set_ylabel('Slope')
+axes[1].grid(alpha=0.3)
 
+axes[2].plot(t_diff, squared_signal, linewidth=0.8, color='green')
+axes[2].set_title('Time (s)')
+axes[2].set_ylabel('Slope')
+axes[2].grid(alpha=0.3)
+
+plt.tight_layout()
+plt.show()
