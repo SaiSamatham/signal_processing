@@ -144,9 +144,10 @@ plt.show()
 #take derivative of signals and square them to see difference
 diff_signal = np.diff(filtered_signal2)
 squared_signal = diff_signal ** 2
+window_size = int(0.15 * fs)  # 150 ms windowc
+integrated_signal = np.convolve(squared_signal, np.ones(window_size), mode = 'same')
 
 t_diff = np.arange(len(diff_signal)) / fs
-window_size = int(0.15 * fs)  # 150 ms window
 fig, axes = plt.subplots(3, 1, figsize=(12,9), sharex=True)
 axes[0].plot(t2, filtered_signal2, linewidth=0.8)
 axes[0].set_title('QRS-band Filtered Signal (5-15 Hz)')
@@ -163,5 +164,11 @@ axes[2].set_title('Time (s)')
 axes[2].set_ylabel('Slope')
 axes[2].grid(alpha=0.3)
 
+axes[3].plot(t_diff, integrated_signal, linewidth=0.8, color='red')
+axes[3].set_title('Integrated Signal')
+axes[3].set_ylabel('Integrated Amplitude')
+axes[3].grid(alpha=0.3)
+
 plt.tight_layout()
 plt.show()
+
