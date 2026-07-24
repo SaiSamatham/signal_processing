@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import wfdb
-from scipy.signal import butter, filtfilt
+from scipy.signal import butter, filtfilt, find_peaks
 
 #get ECG signal data from database
 record = wfdb.rdrecord('100', pn_dir = 'mitdb', sampto=25*360)
@@ -89,3 +89,29 @@ axes[3].grid(alpha=0.3)
 plt.tight_layout()
 plt.show()
 
+min_distance = int(0.2*fs)  # Minimum distance between peaks (200 ms)
+candidate_indices, _ = find_peaks(integrated_signal, distance=min_distance)
+print(len(candidate_indices))
+
+init_window = int(2 * fs)  # 2 seconds
+spki = 0.25 * np.max(integrated_signal[:init_window])
+npki = 0.5 * np.mean(integrated_signal[:init_window])
+threshold = npki + 0.25 * (spki - npki)
+print(f"SPKI={spki:.4f}, NPKI={npki:.4f}, Threshold={threshold:.4f}")
+
+detected_peaks = []
+rr_intervals = []
+
+for idx in candidate_indices:
+    peak_height = integrated_signal[idx]
+    if peak_height > threshold:
+        detected_peaks.append(idx)
+        spki = 0.125 * peak_height + 0.875 * spki
+        if len(detected_peaks) >= 2:
+            rr = detected_peaks[-1] - detected_peaks[-2]
+            rr_intervals.append(rr)
+        else:
+            npki = 0.125 * peak_height + 0.875 * npki
+        threshold = npki + 0.25 * (spki - npki)
+
+print(len(detected_peaks))
