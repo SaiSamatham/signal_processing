@@ -4,7 +4,7 @@ import wfdb
 from scipy.signal import butter, filtfilt, find_peaks
 
 #get ECG signal data from database
-record = wfdb.rdrecord('100', pn_dir = 'mitdb', sampto=25*360)
+record = wfdb.rdrecord('108', pn_dir = 'mitdb', sampto=90*360)
 fs = record.fs #sampling freq for MIT-BIH record, in Hz
 assert fs == 360, f"Expected 360 Hz, got {fs} Hz" 
 
@@ -102,6 +102,7 @@ print(f"SPKI={spki:.4f}, NPKI={npki:.4f}, Threshold={threshold:.4f}")
 detected_peaks = []
 rr_intervals = []
 
+#adaptive thresholding loop
 for idx in candidate_indices:
     peak_height = integrated_signal[idx]
     if peak_height > threshold:
@@ -109,9 +110,29 @@ for idx in candidate_indices:
         spki = 0.125 * peak_height + 0.875 * spki
         if len(detected_peaks) >= 2:
             rr = detected_peaks[-1] - detected_peaks[-2]
+            if rr_intervals:
+                avg_rr = np.mean(rr_intervals[-8:]) #running average from 8 most recent R-R intervals
+                if rr > 1.66 * avg_rr: #checks for 166% threshold of average R-R interval
+                    print(f"Searchback Needed: gap of {rr} samples between "
+                          f"index {detected_peaks[-2]} and {detected_peaks[-1]}")
+                    gap_start = detected_peaks[-2]
+                    gap_end = detected_peaks[-1]
+                    trimmed_start = gap_start + min_distance
+                    trimmed_end = gap_end - min_distance
+                    search_region = integrated_signal[gap_start:gap_end]
+                    lowered_threshold = 0.5*threshold
+                    if trimmed_start < trimmed_end:
+                        search_region = integrated_signal[trimmed_start:trimmed_end]
+                        recovered_indices, _ = find_peaks(search_region, height=lowered_threshold, distance=min_distance)
+                        recovered_indices = recovered_indices+gap_start  # Adjust indices to the original signal
+                        detected_peaks.extend(recovered_indices)
+                        detected_peaks.sort()
+                        print(f"Recovered {len(recovered_indices)} peaks: {list(recovered_indices)}")
             rr_intervals.append(rr)
         else:
             npki = 0.125 * peak_height + 0.875 * npki
         threshold = npki + 0.25 * (spki - npki)
 
 print(len(detected_peaks))
+
+
