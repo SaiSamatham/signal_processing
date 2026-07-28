@@ -89,18 +89,21 @@ axes[3].grid(alpha=0.3)
 plt.tight_layout()
 plt.show()
 
-min_distance = int(0.2*fs)  # Minimum distance between peaks (200 ms)
-candidate_indices, _ = find_peaks(integrated_signal, distance=min_distance)
-print(len(candidate_indices))
-
 init_window = int(2 * fs)  # 2 seconds
 spki = 0.25 * np.max(integrated_signal[:init_window])
 npki = 0.5 * np.mean(integrated_signal[:init_window])
 threshold = npki + 0.25 * (spki - npki)
 print(f"SPKI={spki:.4f}, NPKI={npki:.4f}, Threshold={threshold:.4f}")
 
+min_distance = int(0.2*fs)  # Minimum distance between peaks (200 ms)
+prominence_value = 0.3 * spki
+candidate_indices, _ = find_peaks(integrated_signal, distance=min_distance, prominence=prominence_value)
+print(len(candidate_indices))
+
 detected_peaks = []
 rr_intervals = []
+searchback_count = 0
+total_recovered = 0
 
 #adaptive thresholding loop
 for idx in candidate_indices:
@@ -115,6 +118,7 @@ for idx in candidate_indices:
                 if rr > 1.66 * avg_rr: #checks for 166% threshold of average R-R interval
                     print(f"Searchback Needed: gap of {rr} samples between "
                           f"index {detected_peaks[-2]} and {detected_peaks[-1]}")
+                    searchback_count += 1
                     gap_start = detected_peaks[-2]
                     gap_end = detected_peaks[-1]
                     trimmed_start = gap_start + min_distance
@@ -126,13 +130,57 @@ for idx in candidate_indices:
                         recovered_indices, _ = find_peaks(search_region, height=lowered_threshold, distance=min_distance)
                         recovered_indices = recovered_indices+gap_start  # Adjust indices to the original signal
                         detected_peaks.extend(recovered_indices)
+                        total_recovered += len(recovered_indices)
                         detected_peaks.sort()
                         print(f"Recovered {len(recovered_indices)} peaks: {list(recovered_indices)}")
             rr_intervals.append(rr)
-        else:
-            npki = 0.125 * peak_height + 0.875 * npki
-        threshold = npki + 0.25 * (spki - npki)
+    else:
+        npki = 0.125 * peak_height + 0.875 * npki
+    threshold = npki + 0.25 * (spki - npki)
 
 print(len(detected_peaks))
+print(f"Searchback Triggered {searchback_count} times, Recovered {total_recovered} peaks")
 
+peak_times = np.array(detected_peaks) / fs
+peak_amplitudes = filtered_signal[detected_peaks]
+plt.figure(figsize=(14,4))
+plt.plot(t, filtered_signal, linewidth=0.8, label='Filtered ECG')
+plt.scatter(peak_times, peak_amplitudes, color='red', marker = 'o', s=30, label='Detected R Peaks', zorder =3)
+plt.xlabel('Time (s)')
+plt.ylabel('Amplitude (mV)')
+plt.title('Detected R Peaks on Filtered ECG')
+plt.legend()
+plt.grid(alpha=0.3)
+plt.show()
 
+rr_intervals_ms = np.array(rr_intervals) / fs*1000
+mean_rr_sec = np.mean(rr_intervals_ms) / 1000
+heart_rate_bpm = 60 / mean_rr_sec
+print(f"Average Heart Rate: {heart_rate_bpm:.1f} BPM")
+short_gap_positions = np.where(rr_intervals_ms < 300)[0]
+for pos in short_gap_positions:
+    print(f"Short RR interval: {rr_intervals_ms[pos]:.1f} ms "
+          f"between detected_peaks index {pos} and {pos+1} "
+          f"(sample {detected_peaks[pos]} -> {detected_peaks[pos+1]})")
+
+sdnn = np.std(rr_intervals_ms)
+print(f"SDNN (Heart Rate Variability):{sdnn:.2f} ms")
+print(sorted(rr_intervals_ms))
+
+zoom_start = 250
+zoom_end = 550
+
+fig, axes = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
+axes[0].plot(np.arange(zoom_start, zoom_end)/fs, filtered_signal2[zoom_start:zoom_end])
+axes[0].set_title('QRS-band Filtered Signal (zoomed)')
+axes[0].axvline(356/fs, color='red', linestyle='--', alpha=0.6)
+axes[0].axvline(442/fs, color='red', linestyle='--', alpha=0.6)
+
+axes[1].plot(np.arange(zoom_start, zoom_end)/fs, integrated_signal[zoom_start:zoom_end])
+axes[1].set_title('Integrated Signal (zoomed)')
+axes[1].axvline(356/fs, color='red', linestyle='--', alpha=0.6)
+axes[1].axvline(442/fs, color='red', linestyle='--', alpha=0.6)
+axes[1].axhline(threshold, color='gray', linestyle=':', alpha=0.6)
+
+plt.tight_layout()
+plt.show()
