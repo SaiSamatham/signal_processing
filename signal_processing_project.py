@@ -4,6 +4,7 @@ import wfdb
 from scipy.signal import butter, filtfilt, find_peaks
 
 #get ECG signal data from database
+# 1. LOAD MIT-BIH RECORD VIA wfdb
 record = wfdb.rdrecord('108', pn_dir = 'mitdb', sampto=90*360)
 fs = record.fs #sampling freq for MIT-BIH record, in Hz
 assert fs == 360, f"Expected 360 Hz, got {fs} Hz" 
@@ -20,7 +21,7 @@ plt.ylabel('Amplitude (mV)')
 plt.title('Raw ECG Signal - Record 100, Lead MLII')
 plt.grid(alpha=0.3) 
 
-#bandpass filter
+#bandpass filter (0.5-45 Hz) for clean visualization
 low_cutoff_freq = 0.5
 high_cutoff_freq = 45.0
 
@@ -39,7 +40,7 @@ plt.ylabel('Amplitude (mV)')
 plt.title('Filtered ECG Signal - Record 100, Lead MLII')
 plt.grid(alpha=0.3)
 
-#detection-only signal (Pan-Tompkins passband)
+# QRS-BAND FILTER (5-15 Hz) FOR DETECTION
 low_cutoff_freq2 = 5.0
 high_cutoff_freq2 = 15.0
 
@@ -59,6 +60,7 @@ plt.grid(alpha=0.3)
 plt.show()
 
 #take derivative of signals and square them to see difference
+# DIFFERENTIATE -> SQUARE -> INTEGRATE (Pan-Tompkins transform stages)
 diff_signal = np.diff(filtered_signal2)
 squared_signal = diff_signal ** 2
 window_size = int(0.15 * fs)  # 150 ms window
@@ -89,6 +91,7 @@ axes[3].grid(alpha=0.3)
 plt.tight_layout()
 plt.show()
 
+# ADAPTIVE THRESHOLDING (SPKI/NPKI)
 init_window = int(2 * fs)  # 2 seconds
 spki = 0.25 * np.max(integrated_signal[:init_window])
 npki = 0.5 * np.mean(integrated_signal[:init_window])
@@ -116,6 +119,7 @@ for idx in candidate_indices:
             if rr_intervals:
                 avg_rr = np.mean(rr_intervals[-8:]) #running average from 8 most recent R-R intervals
                 if rr > 1.66 * avg_rr: #checks for 166% threshold of average R-R interval
+                    # SEARCHBACK FOR RECOVERING GENUINELY MISSED BEATS
                     print(f"Searchback Needed: gap of {rr} samples between "
                           f"index {detected_peaks[-2]} and {detected_peaks[-1]}")
                     searchback_count += 1
@@ -153,6 +157,7 @@ plt.legend()
 plt.grid(alpha=0.3)
 plt.show()
 
+# HEART RATE AND HRV (SDNN) COMPUTED FROM THE RESULTING R-R INTERVALS
 rr_intervals_ms = np.array(rr_intervals) / fs*1000
 mean_rr_sec = np.mean(rr_intervals_ms) / 1000
 heart_rate_bpm = 60 / mean_rr_sec
