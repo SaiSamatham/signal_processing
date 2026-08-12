@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import wfdb
 from scipy.signal import butter, filtfilt, find_peaks
+from collections import Counter
+import pandas as pd
 
 #get ECG signal data from database
 # 1. LOAD MIT-BIH RECORD VIA wfdb
@@ -105,6 +107,7 @@ print(len(candidate_indices))
 
 detected_peaks = []
 rr_intervals = []
+beat_labels = []
 searchback_count = 0
 total_recovered = 0
 
@@ -118,6 +121,12 @@ for idx in candidate_indices:
             rr = detected_peaks[-1] - detected_peaks[-2]
             if rr_intervals:
                 avg_rr = np.mean(rr_intervals[-8:]) #running average from 8 most recent R-R intervals
+                if rr < 0.8 * avg_rr:
+                    beat_labels.append("Premature Beat")
+                elif rr > 1.2 * avg_rr:
+                    beat_labels.append("Delayed Beat")
+                else:
+                    beat_labels.append("Normal Beat")
                 if rr > 1.66 * avg_rr: #checks for 166% threshold of average R-R interval
                     # SEARCHBACK FOR RECOVERING GENUINELY MISSED BEATS
                     print(f"Searchback Needed: gap of {rr} samples between "
@@ -137,13 +146,19 @@ for idx in candidate_indices:
                         total_recovered += len(recovered_indices)
                         detected_peaks.sort()
                         print(f"Recovered {len(recovered_indices)} peaks: {list(recovered_indices)}")
+            else:
+                beat_labels.append("Normal Beat")
             rr_intervals.append(rr)
+        else:
+            beat_labels.append("Normal Beat")
     else:
         npki = 0.125 * peak_height + 0.875 * npki
     threshold = npki + 0.25 * (spki - npki)
 
 print(len(detected_peaks))
 print(f"Searchback Triggered {searchback_count} times, Recovered {total_recovered} peaks")
+print(f"Detected peaks: {len(detected_peaks)}, Beat labels: {len(beat_labels)}")
+print(Counter(beat_labels))
 
 peak_times = np.array(detected_peaks) / fs
 peak_amplitudes = filtered_signal[detected_peaks]
@@ -189,3 +204,13 @@ axes[1].axhline(threshold, color='gray', linestyle=':', alpha=0.6)
 
 plt.tight_layout()
 plt.show()
+
+export_data = {
+    "beat_index": np.arange(len(detected_peaks)),
+    "sample_index": detected_peaks,
+    "time_sec": peak_times,
+    "amplitude_mV": peak_amplitudes,
+    "label": beat_labels
+}
+
+print(len(detected_peaks), len(peak_times), len(peak_amplitudes), len(beat_labels))
