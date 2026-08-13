@@ -4,8 +4,7 @@ This is an end-to-end biomedical signal processing pipeline that loads ECG recor
 
 Built and validated against two MIT-BIH records with meaningfully different QRS morphology (records **100** and **108**) using `numpy`, `scipy`, `wfdb`, and `pandas`.
 
-Inspired by this paper: [https://scispace.com/pdf/a-real-time-qrs-detection-algorithm-5dqh3i09n2.pdf](url)
----
+Inspired by this paper: [A Real-Time QRS Detection Algorithm](https://scispace.com/pdf/a-real-time-qrs-detection-algorithm-5dqh3i09n2.pdf)---
 
 ## Table of Contents
 
