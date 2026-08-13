@@ -4,7 +4,7 @@ This is an end-to-end biomedical signal processing pipeline that loads ECG recor
 
 Built and validated against two MIT-BIH records with meaningfully different QRS morphology (records **100** and **108**) using `numpy`, `scipy`, `wfdb`, and `pandas`.
 
-Inspired by this paper: [A Real-Time QRS Detection Algorithm](https://scispace.com/pdf/a-real-time-qrs-detection-algorithm-5dqh3i09n2.pdf)---
+Inspired by this paper: [A Real-Time QRS Detection Algorithm](https://scispace.com/pdf/a-real-time-qrs-detection-algorithm-5dqh3i09n2.pdf)— J. Pan and W. J. Tompkins, IEEE Transactions on Biomedical Engineering, vol. BME-32, no. 3, pp. 230–236, March 1985.
 
 ## Table of Contents
 
@@ -51,20 +51,19 @@ Raw ECG (wfdb)
 pip install wfdb scipy numpy matplotlib pandas
 ```
 
-Records are pulled directly from PhysioNet the first time you run the script (requires an internet connection) and cached locally afterward.
+Records are pulled directly from PhysioNet the first time you run the script.
 
 ---
 
 ## Stage-by-Stage Breakdown
 
 ### 1. Load record (`wfdb`)
-Loads a specified duration of a MIT-BIH record (e.g. record `'100'` or `'108'`) at its native 360 Hz sampling rate. Channel 0 (**lead MLII** — Modified Limb Lead II) is used, since it's the standard lead most QRS-detection literature and benchmarks are built around, typically giving the clearest, most consistent QRS deflection.
+Loads a duration of a specific MIT-BIH record (e.g. record `'100'` or `'108'`) at its native 360 Hz sampling rate. Channel 0 (**lead MLII** — Modified Limb Lead II) is used, since it's the standard lead most QRS-detection literature and benchmarks are built around, typically giving the clearest, most consistent QRS deflection.
 
 ### 2. Bandpass filter (0.5–45 Hz)
-A 4th-order Butterworth bandpass filter, applied with `scipy.signal.filtfilt` (zero-phase — no time-shift of peaks). This is the **general-purpose "clean ECG"** signal, used for visualization and for pulling final peak amplitudes:
+A 4th-order Butterworth bandpass filter, applied with `scipy.signal.filtfilt`. This is the **general-purpose "clean ECG"** signal, used for visualization and for pulling final peak amplitudes:
 - **0.5 Hz high-pass edge** removes baseline wander (breathing, electrode drift).
 - **45 Hz low-pass edge** removes muscle noise (EMG) and powerline interference, while preserving the full diagnostic content of the P-wave, QRS complex, and T-wave.
-- **Butterworth** was chosen specifically for its maximally flat passband — it doesn't distort the relative amplitude/shape of the waveform the way a Chebyshev or elliptic filter's ripple would.
 
 ### 3. QRS-band filter (5–15 Hz)
 A second, separate Butterworth bandpass, tuned to the frequency range where QRS-complex energy is concentrated (per the original Pan-Tompkins paper). This narrower band actively suppresses P-waves and T-waves, which are lower-frequency and could otherwise be mistaken for beats. This signal is **detection-only** — not meant to visually resemble a normal ECG.
@@ -113,11 +112,8 @@ The script produces several `matplotlib` figures, in this order:
 | 2 | **Filtered ECG Signal (0.5–45 Hz)** | The general-purpose clean signal. | A flat baseline between beats, with the QRS/P/T-wave shape preserved — used later for the final peak-amplitude overlay. |
 | 3 | **Filtered QRS Signal (5–15 Hz)** | The detection-only signal. | P-waves and T-waves are largely suppressed; only sharp, isolated QRS spikes remain, each often showing more internal "ringing" than in Plot 2. |
 | 4 | **4-panel: QRS-band → Differentiated → Squared → Integrated** | The full Pan-Tompkins transform, stacked so you can trace one heartbeat through each stage. | Each panel should look progressively "cleaner" — from a multi-lobed spike, to a sharp derivative burst, to an isolated positive bump, to one smooth, wide hump per heartbeat in the bottom (integrated) panel. |
-| 5 | **Detected R-Peaks on Filtered ECG** | Your final detections (red dots) overlaid on the clean 0.5–45 Hz ECG trace. | Every red dot should land consistently on the same part of each heartbeat. **Note:** on record 108 specifically, the dots land on the *downward* deflection, not an upward spike — this is correct, not a bug (see note below). |
+| 5 | **Detected R-Peaks on Filtered ECG** | The final detections (red dots) overlaid on the clean 0.5–45 Hz ECG trace. | Every red dot should land consistently on the same part of each heartbeat.|
 | 6 (diagnostic) | **Zoomed QRS-band + Integrated Signal, around a specific gap** | A zoomed-in look at one specific pair of beats, with vertical markers at their sample locations and the current threshold as a horizontal dashed line. | Used during debugging to confirm whether two "detected peaks" were genuinely separate heartbeats or a single QRS complex being counted twice. |
-
-**Why the red dots sit on a downward spike for record 108:** the shape of the QRS complex isn't universal — it depends on the electrical axis of a given patient's heart relative to where the electrode is placed. Record 108's lead configuration produces an S-wave-dominant (negative) complex rather than the R-wave-dominant (positive) shape seen in record 100. The detector correctly locks onto whichever deflection carries the most energy each beat — confirmed by checking that the signal's 5th/95th percentiles are asymmetric (skewed negative) rather than assuming "peaks are always positive."
-
 ---
 
 ## Understanding the Terminal Output
@@ -174,8 +170,7 @@ Flags any R-R interval under 300 ms — used during debugging to catch cases whe
 ```
 SDNN (Heart Rate Variability): 159.42 ms
 ```
-Standard deviation of all R-R intervals, in milliseconds — the HRV metric. (Note: short-recording SDNN isn't directly comparable to standard 24-hour clinical reference ranges, which are typically longer-duration benchmarks.)
-
+Standard deviation of all R-R intervals, in milliseconds — the HRV metric.
 ```
 [200.0, 472.22, 530.56, ...]
 ```
