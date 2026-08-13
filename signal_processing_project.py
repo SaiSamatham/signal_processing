@@ -213,4 +213,6 @@ export_data = {
     "label": beat_labels
 }
 
-print(len(detected_peaks), len(peak_times), len(peak_amplitudes), len(beat_labels))
+df = pd.DataFrame(export_data)
+df.to_csv("ecg_beat_results.csv", index=False)
+print(f"Exported {len(df)} beats to ecg_beat_results.csv")
