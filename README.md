@@ -1,6 +1,6 @@
 # ECG QRS Detection & Beat Classification Pipeline
 
-This is an end-to-end biomedical signal processing pipeline that loads ECG records from the MIT-BIH Arrhythmia Database, cleans the signal, detects heartbeats using a full implementation of the **Pan-Tompkins algorithm**, classifies each beat, computes heart rate / HRV, and exports results to CSV.
+This is an end-to-end biomedical signal processing pipeline that loads ECG records from the [MIT-BIH Arrhythmia Database](https://physionet.org/content/mitdb/1.0.0/), cleans the signal, detects heartbeats using a full implementation of the **Pan-Tompkins algorithm**, classifies each beat, computes heart rate / HRV, and exports results to CSV.
 
 Built and validated against two MIT-BIH records with meaningfully different QRS morphology (records **100** and **108**) using `numpy`, `scipy`, `wfdb`, and `pandas`.
 
