@@ -66,7 +66,7 @@ A 4th-order Butterworth bandpass filter, applied with `scipy.signal.filtfilt`. T
 - **45 Hz low-pass edge** removes muscle noise (EMG) and powerline interference, while preserving the full diagnostic content of the P-wave, QRS complex, and T-wave.
 
 ### 3. QRS-band filter (5–15 Hz)
-A second, separate Butterworth bandpass, tuned to the frequency range where QRS-complex energy is concentrated (per the original Pan-Tompkins paper). This narrower band actively suppresses P-waves and T-waves, which are lower-frequency and could otherwise be mistaken for beats. This signal is **detection-only** — not meant to visually resemble a normal ECG.
+A second, separate Butterworth bandpass, tuned to the frequency range where QRS-complex energy is concentrated (per the original Pan-Tompkins paper). This narrower band actively suppresses P-waves and T-waves, which are lower-frequency and could otherwise be mistaken for beats. This signal is **detection-only**, and it's not meant to visually resemble a normal ECG.
 
 ### 4. Differentiate → Square → Integrate
 - **Differentiation** (`np.diff`) emphasizes the steep slopes characteristic of a QRS complex.
@@ -82,10 +82,10 @@ Implements the actual Pan-Tompkins peak-classification logic:
 - Initialized from the first 2 seconds of the recording (`SPKI = 0.25 × max`, `NPKI = 0.5 × mean`).
 - Candidate peaks are found with `scipy.signal.find_peaks`, constrained by:
   - **`distance`** (200 ms) — the heart's physiological refractory period; no two real beats can be closer than this.
-  - **`prominence`** (`0.3 × SPKI`) — ensures a candidate genuinely stands out from its local surroundings, not just clears a height/distance bar. This was added specifically to prevent a single QRS complex with a notched/biphasic shape from being counted as two separate beats.
+  - **`prominence`** (`0.3 × SPKI`) — ensures a candidate genuinely stands out from its local surroundings, not just clears a height/distance bar. This was added specifically to prevent a single QRS complex with a notched shape from being counted as two separate beats.
 
 ### 6. Searchback
-If the gap since the last confirmed beat exceeds **166% of the recent average R-R interval** (average of the last 8 intervals), the algorithm re-scans that specific gap using a **halved threshold**, to recover a real peak that may have been narrowly rejected. The re-search window is trimmed by the 200 ms refractory distance on both ends, to avoid "rediscovering" the ringing tails of the two beats bracketing the gap.
+If the gap since the last confirmed beat exceeds **166% of the recent average R-R interval** (average of the last 8 intervals), the algorithm re-scans that specific gap using a **halved threshold**, to recover a real peak that may have been narrowly rejected. The re-search window is trimmed by the 200 ms refractory distance on both ends, to avoid "rediscovering" the ringing tails of the two beats on either side of the gap.
 
 ### 7. Beat classification
 Each beat (after the first two, which default to "Normal") is labeled by comparing its R-R interval to the running 8-beat average:
@@ -189,26 +189,6 @@ The full sorted list of every R-R interval in milliseconds — used during debug
 | `time_sec` | Beat timestamp, in seconds from the start of the recording |
 | `amplitude_mV` | Signal amplitude (from the 0.5–45 Hz filtered signal) at that beat |
 | `label` | `Normal Beat`, `Premature Beat`, or `Delayed Beat` |
-
----
-
-## Bugs Found & Fixed During Development
-
-These were real issues caught and resolved through debugging and validation, not hypothetical:
-
-1. **Indentation bug (threshold never updated on noise candidates).** The `else` branch handling noise-classified peaks was nested one level too deep, so `NPKI` and the recomputed `threshold` never updated correctly on every iteration — causing the threshold to drift and accept far too many false peaks.
-2. **Double-detection from missing `prominence` constraint.** A single QRS complex with a biphasic/notched shape (specific to record 108's morphology) produced one wide hump in the integrated signal with enough internal structure to register as two separate `find_peaks` detections. Diagnosed by zooming into the raw and integrated signals around a specific flagged short R-R interval, and fixed by adding a `prominence` requirement.
-3. **Missing edge-case `else` in beat classification.** The second-ever detected beat (before any R-R average existed) silently produced no label at all, causing `beat_labels` to be one shorter than `detected_peaks`. Caught by explicitly comparing array lengths before trusting downstream results.
-4. **Stale/cached plot images during debugging.** Several iterations appeared visually identical despite code changes; resolved by printing a concrete count (`len(detected_peaks)`) alongside each plot to confirm a genuinely fresh run before interpreting the image.
-
----
-
-## Known Limitations / Simplifications
-
-- **Searchback-recovered peaks bypass full bookkeeping.** Recovered peaks are inserted into `detected_peaks`, but their heights don't update `SPKI`, and they don't get their own R-R interval or classification label — an accepted simplification given they're a small minority of total beats in this dataset.
-- **One residual short R-R interval (~200 ms)** remains after the `prominence` fix, accepted as a minor outlier rather than fully investigated further.
-- **Classification is R-R-interval-only** — it doesn't use QRS morphology (shape), so it can't distinguish, for example, a genuine premature ventricular contraction from a normal beat that simply arrived early for another reason.
-- **SDNN over a short (90 s) window** isn't directly comparable to standard 24-hour clinical HRV reference ranges.
 
 ---
 
